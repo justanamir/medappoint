@@ -43,6 +43,18 @@ func main() {
 		ad := api.AuthDeps{Cfg: cfg, Q: queries}
 		r.Post("/auth/register", ad.RegisterHandler)
 		r.Post("/auth/login", ad.LoginHandler)
+
+		cd := api.ClinicDeps{Q: queries}
+		r.Get("/clinics", cd.ListClinicsHandler)
+
+		pd := api.ProviderDeps{Q: queries}
+		r.Get("/providers", pd.ListProvidersHandler)
+
+		sd := api.ServiceDeps{Q: queries}
+		r.Get("/services", sd.ListServicesHandler)
+
+		avd := api.AvailabilityDeps{Q: queries}
+		r.Get("/availabilities", avd.ListByProviderHandler)
 	})
 
 	hs := &http.Server{
