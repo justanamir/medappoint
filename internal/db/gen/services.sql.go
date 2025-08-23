@@ -7,9 +7,28 @@ package gen
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const getService = `-- name: GetService :one
+SELECT id, clinic_id, name, description, duration_min, created_at, updated_at
+FROM services
+WHERE id = $1
+`
+
+func (q *Queries) GetService(ctx context.Context, id int64) (Service, error) {
+	row := q.db.QueryRow(ctx, getService, id)
+	var i Service
+	err := row.Scan(
+		&i.ID,
+		&i.ClinicID,
+		&i.Name,
+		&i.Description,
+		&i.DurationMin,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
 
 const listServices = `-- name: ListServices :many
 SELECT
@@ -26,13 +45,13 @@ ORDER BY s.id
 `
 
 type ListServicesRow struct {
-	ID             int64       `json:"id"`
-	ClinicID       int64       `json:"clinic_id"`
-	Name           string      `json:"name"`
-	Description    pgtype.Text `json:"description"`
-	DurationMin    int32       `json:"duration_min"`
-	ClinicName     string      `json:"clinic_name"`
-	ClinicTimezone string      `json:"clinic_timezone"`
+	ID             int64   `json:"id"`
+	ClinicID       int64   `json:"clinic_id"`
+	Name           string  `json:"name"`
+	Description    *string `json:"description"`
+	DurationMin    int32   `json:"duration_min"`
+	ClinicName     string  `json:"clinic_name"`
+	ClinicTimezone string  `json:"clinic_timezone"`
 }
 
 func (q *Queries) ListServices(ctx context.Context) ([]ListServicesRow, error) {

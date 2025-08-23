@@ -14,3 +14,10 @@ sql:
         overrides:
           - db_type: "citext"
             go_type: "string"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "text"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true

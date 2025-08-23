@@ -5,21 +5,23 @@
 package gen
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Appointment struct {
-	ID         int64              `json:"id"`
-	ClinicID   int64              `json:"clinic_id"`
-	ProviderID int64              `json:"provider_id"`
-	PatientID  int64              `json:"patient_id"`
-	ServiceID  int64              `json:"service_id"`
-	StartTime  pgtype.Timestamptz `json:"start_time"`
-	EndTime    pgtype.Timestamptz `json:"end_time"`
-	Status     string             `json:"status"`
-	Notes      pgtype.Text        `json:"notes"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID         int64     `json:"id"`
+	ClinicID   int64     `json:"clinic_id"`
+	ProviderID int64     `json:"provider_id"`
+	PatientID  int64     `json:"patient_id"`
+	ServiceID  int64     `json:"service_id"`
+	StartTime  time.Time `json:"start_time"`
+	EndTime    time.Time `json:"end_time"`
+	Status     string    `json:"status"`
+	Notes      *string   `json:"notes"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type Availability struct {
@@ -35,53 +37,53 @@ type Blackout struct {
 	ClinicID   pgtype.Int8 `json:"clinic_id"`
 	ProviderID pgtype.Int8 `json:"provider_id"`
 	Date       pgtype.Date `json:"date"`
-	Reason     pgtype.Text `json:"reason"`
+	Reason     *string     `json:"reason"`
 }
 
 type Clinic struct {
-	ID        int64              `json:"id"`
-	Name      string             `json:"name"`
-	Timezone  string             `json:"timezone"`
-	Address   pgtype.Text        `json:"address"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Timezone  string    `json:"timezone"`
+	Address   *string   `json:"address"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Patient struct {
-	ID        int64              `json:"id"`
-	UserID    int64              `json:"user_id"`
-	FullName  string             `json:"full_name"`
-	Phone     pgtype.Text        `json:"phone"`
-	Dob       pgtype.Date        `json:"dob"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        int64       `json:"id"`
+	UserID    int64       `json:"user_id"`
+	FullName  string      `json:"full_name"`
+	Phone     *string     `json:"phone"`
+	Dob       pgtype.Date `json:"dob"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
 
 type Provider struct {
-	ID         int64              `json:"id"`
-	UserID     int64              `json:"user_id"`
-	FullName   string             `json:"full_name"`
-	Speciality string             `json:"speciality"`
-	ClinicID   int64              `json:"clinic_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID         int64     `json:"id"`
+	UserID     int64     `json:"user_id"`
+	FullName   string    `json:"full_name"`
+	Speciality string    `json:"speciality"`
+	ClinicID   int64     `json:"clinic_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type Service struct {
-	ID          int64              `json:"id"`
-	ClinicID    int64              `json:"clinic_id"`
-	Name        string             `json:"name"`
-	Description pgtype.Text        `json:"description"`
-	DurationMin int32              `json:"duration_min"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          int64     `json:"id"`
+	ClinicID    int64     `json:"clinic_id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	DurationMin int32     `json:"duration_min"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type User struct {
-	ID           int64              `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	Role         string             `json:"role"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID           int64     `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	Role         string    `json:"role"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }

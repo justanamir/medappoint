@@ -15,9 +15,11 @@ type ProviderDeps struct {
 func (d ProviderDeps) ListProvidersHandler(w http.ResponseWriter, r *http.Request) {
 	providers, err := d.Q.ListProviders(r.Context())
 	if err != nil {
+		println("ListProviders error:", err.Error()) // TEMP debug
 		http.Error(w, "failed to list providers", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(providers)
 }

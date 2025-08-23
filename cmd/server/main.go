@@ -55,6 +55,13 @@ func main() {
 
 		avd := api.AvailabilityDeps{Q: queries}
 		r.Get("/availabilities", avd.ListByProviderHandler)
+
+		sh := api.SlotDeps{Q: queries}
+		r.Get("/slots", sh.ListSlotsHandler)
+
+		ah := api.AppointmentDeps{Q: queries}
+		r.Post("/appointments", ah.CreateHandler)
+
 	})
 
 	hs := &http.Server{

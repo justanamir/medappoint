@@ -9,6 +9,65 @@ import (
 	"context"
 )
 
+const getProvider = `-- name: GetProvider :one
+SELECT id, user_id, full_name, speciality, clinic_id, created_at, updated_at
+FROM providers
+WHERE id = $1
+`
+
+func (q *Queries) GetProvider(ctx context.Context, id int64) (Provider, error) {
+	row := q.db.QueryRow(ctx, getProvider, id)
+	var i Provider
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FullName,
+		&i.Speciality,
+		&i.ClinicID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getProviderWeekdayAvailability = `-- name: GetProviderWeekdayAvailability :many
+SELECT id, provider_id, weekday, start_hhmm, end_hhmm
+FROM availabilities
+WHERE provider_id = $1 AND weekday = $2
+ORDER BY start_hhmm
+`
+
+type GetProviderWeekdayAvailabilityParams struct {
+	ProviderID int64 `json:"provider_id"`
+	Weekday    int32 `json:"weekday"`
+}
+
+func (q *Queries) GetProviderWeekdayAvailability(ctx context.Context, arg GetProviderWeekdayAvailabilityParams) ([]Availability, error) {
+	rows, err := q.db.Query(ctx, getProviderWeekdayAvailability, arg.ProviderID, arg.Weekday)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Availability
+	for rows.Next() {
+		var i Availability
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProviderID,
+			&i.Weekday,
+			&i.StartHhmm,
+			&i.EndHhmm,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProviders = `-- name: ListProviders :many
 SELECT
   p.id,
