@@ -38,6 +38,10 @@ func main() {
 	queries := gen.New(pg.Pool)
 	r := api.NewRouter()
 
+	root := chi.NewRouter()
+	root.Use(api.RecoverJSON)
+	root.Mount("/", r)
+
 	// v1 routes
 	r.Route("/v1", func(r chi.Router) {
 		ad := api.AuthDeps{Cfg: cfg, Q: queries}
@@ -62,11 +66,28 @@ func main() {
 		ah := api.AppointmentDeps{Q: queries}
 		r.Post("/appointments", ah.CreateHandler)
 
+		// 🔒 Protected (requires Authorization: Bearer <token>)
+		r.Group(func(pr chi.Router) {
+			pr.Use(api.WithAuth(cfg))
+			md := api.MeDeps{Cfg: cfg, Q: queries}
+			pr.Get("/me/appointments", md.ListMyAppointments)
+
+			ah := api.AppointmentDeps{Q: queries}
+			pr.Delete("/appointments/{id}", ah.CancelHandler)
+
+			psd := api.ProviderScheduleDeps{Cfg: cfg, Q: queries}
+			pr.Get("/providers/{id}/appointments", psd.ListProviderDayAppointments)
+
+			ad := api.AdminDeps{Cfg: cfg, Q: queries}
+			pr.Get("/admin/appointments", ad.ListDayAppointments)
+
+		})
+
 	})
 
 	hs := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           r,
+		Handler:           root,
 		ReadTimeout:       15 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
 		WriteTimeout:      15 * time.Second,

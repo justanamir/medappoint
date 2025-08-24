@@ -20,3 +20,8 @@ SELECT id, provider_id, weekday, start_hhmm, end_hhmm
 FROM availabilities
 WHERE provider_id = $1 AND weekday = $2
 ORDER BY start_hhmm;
+
+-- name: GetProviderByUserID :one
+SELECT id, user_id, full_name, speciality, clinic_id, created_at, updated_at
+FROM providers
+WHERE user_id = $1;

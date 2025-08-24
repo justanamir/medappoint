@@ -10,6 +10,34 @@ import (
 	"time"
 )
 
+const cancelAppointment = `-- name: CancelAppointment :one
+UPDATE appointments
+SET status = 'cancelled', updated_at = NOW()
+WHERE id = $1 AND status = 'scheduled'
+RETURNING
+  id, clinic_id, provider_id, patient_id, service_id,
+  start_time, end_time, status, notes, created_at, updated_at
+`
+
+func (q *Queries) CancelAppointment(ctx context.Context, id int64) (Appointment, error) {
+	row := q.db.QueryRow(ctx, cancelAppointment, id)
+	var i Appointment
+	err := row.Scan(
+		&i.ID,
+		&i.ClinicID,
+		&i.ProviderID,
+		&i.PatientID,
+		&i.ServiceID,
+		&i.StartTime,
+		&i.EndTime,
+		&i.Status,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createAppointment = `-- name: CreateAppointment :one
 
 INSERT INTO appointments (clinic_id, provider_id, patient_id, service_id, start_time, end_time, status, notes)
@@ -53,6 +81,181 @@ func (q *Queries) CreateAppointment(ctx context.Context, arg CreateAppointmentPa
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getAppointment = `-- name: GetAppointment :one
+SELECT
+  id, clinic_id, provider_id, patient_id, service_id,
+  start_time, end_time, status, notes, created_at, updated_at
+FROM appointments
+WHERE id = $1
+`
+
+func (q *Queries) GetAppointment(ctx context.Context, id int64) (Appointment, error) {
+	row := q.db.QueryRow(ctx, getAppointment, id)
+	var i Appointment
+	err := row.Scan(
+		&i.ID,
+		&i.ClinicID,
+		&i.ProviderID,
+		&i.PatientID,
+		&i.ServiceID,
+		&i.StartTime,
+		&i.EndTime,
+		&i.Status,
+		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listAllAppointmentsOnDate = `-- name: ListAllAppointmentsOnDate :many
+SELECT
+  a.id, a.clinic_id, a.provider_id, a.patient_id, a.service_id,
+  a.start_time, a.end_time, a.status, a.notes, a.created_at, a.updated_at,
+  pr.full_name AS provider_name,
+  pa.full_name AS patient_name,
+  s.name       AS service_name,
+  c.name       AS clinic_name
+FROM appointments a
+JOIN providers pr ON pr.id = a.provider_id
+LEFT JOIN patients pa ON pa.id = a.patient_id
+JOIN services  s  ON s.id = a.service_id
+JOIN clinics   c  ON c.id = a.clinic_id
+WHERE a.start_time >= $1
+  AND a.start_time <  $2
+ORDER BY pr.id, a.start_time
+`
+
+type ListAllAppointmentsOnDateParams struct {
+	StartTime   time.Time `json:"start_time"`
+	StartTime_2 time.Time `json:"start_time_2"`
+}
+
+type ListAllAppointmentsOnDateRow struct {
+	ID           int64     `json:"id"`
+	ClinicID     int64     `json:"clinic_id"`
+	ProviderID   int64     `json:"provider_id"`
+	PatientID    int64     `json:"patient_id"`
+	ServiceID    int64     `json:"service_id"`
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	Status       string    `json:"status"`
+	Notes        *string   `json:"notes"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ProviderName string    `json:"provider_name"`
+	PatientName  *string   `json:"patient_name"`
+	ServiceName  string    `json:"service_name"`
+	ClinicName   string    `json:"clinic_name"`
+}
+
+func (q *Queries) ListAllAppointmentsOnDate(ctx context.Context, arg ListAllAppointmentsOnDateParams) ([]ListAllAppointmentsOnDateRow, error) {
+	rows, err := q.db.Query(ctx, listAllAppointmentsOnDate, arg.StartTime, arg.StartTime_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllAppointmentsOnDateRow
+	for rows.Next() {
+		var i ListAllAppointmentsOnDateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClinicID,
+			&i.ProviderID,
+			&i.PatientID,
+			&i.ServiceID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Status,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ProviderName,
+			&i.PatientName,
+			&i.ServiceName,
+			&i.ClinicName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAppointmentsByProviderOnDate = `-- name: ListAppointmentsByProviderOnDate :many
+SELECT
+  a.id, a.clinic_id, a.provider_id, a.patient_id, a.service_id,
+  a.start_time, a.end_time, a.status, a.notes, a.created_at, a.updated_at,
+  p.full_name  AS patient_name,
+  s.name       AS service_name
+FROM appointments a
+LEFT JOIN patients p ON p.id = a.patient_id
+JOIN services  s ON s.id = a.service_id
+WHERE a.provider_id = $1
+  AND a.start_time >= $2
+  AND a.start_time <  $3
+ORDER BY a.start_time ASC
+`
+
+type ListAppointmentsByProviderOnDateParams struct {
+	ProviderID  int64     `json:"provider_id"`
+	StartTime   time.Time `json:"start_time"`
+	StartTime_2 time.Time `json:"start_time_2"`
+}
+
+type ListAppointmentsByProviderOnDateRow struct {
+	ID          int64     `json:"id"`
+	ClinicID    int64     `json:"clinic_id"`
+	ProviderID  int64     `json:"provider_id"`
+	PatientID   int64     `json:"patient_id"`
+	ServiceID   int64     `json:"service_id"`
+	StartTime   time.Time `json:"start_time"`
+	EndTime     time.Time `json:"end_time"`
+	Status      string    `json:"status"`
+	Notes       *string   `json:"notes"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	PatientName *string   `json:"patient_name"`
+	ServiceName string    `json:"service_name"`
+}
+
+func (q *Queries) ListAppointmentsByProviderOnDate(ctx context.Context, arg ListAppointmentsByProviderOnDateParams) ([]ListAppointmentsByProviderOnDateRow, error) {
+	rows, err := q.db.Query(ctx, listAppointmentsByProviderOnDate, arg.ProviderID, arg.StartTime, arg.StartTime_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAppointmentsByProviderOnDateRow
+	for rows.Next() {
+		var i ListAppointmentsByProviderOnDateRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClinicID,
+			&i.ProviderID,
+			&i.PatientID,
+			&i.ServiceID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Status,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PatientName,
+			&i.ServiceName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listProviderAppointmentsOnDate = `-- name: ListProviderAppointmentsOnDate :many
@@ -99,6 +302,88 @@ func (q *Queries) ListProviderAppointmentsOnDate(ctx context.Context, arg ListPr
 			&i.StartTime,
 			&i.EndTime,
 			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUpcomingAppointmentsByPatient = `-- name: ListUpcomingAppointmentsByPatient :many
+SELECT
+  a.id, a.clinic_id, a.provider_id, a.patient_id, a.service_id,
+  a.start_time, a.end_time, a.status, a.notes, a.created_at, a.updated_at,
+  p.full_name   AS provider_name,
+  s.name        AS service_name,
+  c.name        AS clinic_name
+FROM appointments a
+JOIN providers p ON p.id = a.provider_id
+JOIN services  s ON s.id = a.service_id
+JOIN clinics   c ON c.id = a.clinic_id
+WHERE a.patient_id = $1
+  AND a.status IN ('scheduled','completed')
+  AND a.start_time >= $2
+ORDER BY a.start_time ASC
+LIMIT $3 OFFSET $4
+`
+
+type ListUpcomingAppointmentsByPatientParams struct {
+	PatientID int64     `json:"patient_id"`
+	StartTime time.Time `json:"start_time"`
+	Limit     int32     `json:"limit"`
+	Offset    int32     `json:"offset"`
+}
+
+type ListUpcomingAppointmentsByPatientRow struct {
+	ID           int64     `json:"id"`
+	ClinicID     int64     `json:"clinic_id"`
+	ProviderID   int64     `json:"provider_id"`
+	PatientID    int64     `json:"patient_id"`
+	ServiceID    int64     `json:"service_id"`
+	StartTime    time.Time `json:"start_time"`
+	EndTime      time.Time `json:"end_time"`
+	Status       string    `json:"status"`
+	Notes        *string   `json:"notes"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	ProviderName string    `json:"provider_name"`
+	ServiceName  string    `json:"service_name"`
+	ClinicName   string    `json:"clinic_name"`
+}
+
+func (q *Queries) ListUpcomingAppointmentsByPatient(ctx context.Context, arg ListUpcomingAppointmentsByPatientParams) ([]ListUpcomingAppointmentsByPatientRow, error) {
+	rows, err := q.db.Query(ctx, listUpcomingAppointmentsByPatient,
+		arg.PatientID,
+		arg.StartTime,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUpcomingAppointmentsByPatientRow
+	for rows.Next() {
+		var i ListUpcomingAppointmentsByPatientRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClinicID,
+			&i.ProviderID,
+			&i.PatientID,
+			&i.ServiceID,
+			&i.StartTime,
+			&i.EndTime,
+			&i.Status,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ProviderName,
+			&i.ServiceName,
+			&i.ClinicName,
 		); err != nil {
 			return nil, err
 		}

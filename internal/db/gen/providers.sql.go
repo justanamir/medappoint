@@ -30,6 +30,27 @@ func (q *Queries) GetProvider(ctx context.Context, id int64) (Provider, error) {
 	return i, err
 }
 
+const getProviderByUserID = `-- name: GetProviderByUserID :one
+SELECT id, user_id, full_name, speciality, clinic_id, created_at, updated_at
+FROM providers
+WHERE user_id = $1
+`
+
+func (q *Queries) GetProviderByUserID(ctx context.Context, userID int64) (Provider, error) {
+	row := q.db.QueryRow(ctx, getProviderByUserID, userID)
+	var i Provider
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FullName,
+		&i.Speciality,
+		&i.ClinicID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getProviderWeekdayAvailability = `-- name: GetProviderWeekdayAvailability :many
 SELECT id, provider_id, weekday, start_hhmm, end_hhmm
 FROM availabilities

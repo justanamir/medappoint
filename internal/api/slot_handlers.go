@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,29 +25,29 @@ func (d SlotDeps) ListSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	dateStr := qp.Get("date") // YYYY-MM-DD
 
 	if pidStr == "" || sidStr == "" || dateStr == "" {
-		http.Error(w, "provider_id, service_id, and date are required", http.StatusBadRequest)
+		ErrorJSON(w, http.StatusBadRequest, "missing required parameters", "provider_id, service_id, date")
 		return
 	}
 	providerID, err := strconv.ParseInt(pidStr, 10, 64)
 	if err != nil || providerID <= 0 {
-		http.Error(w, "provider_id must be a positive integer", http.StatusBadRequest)
+		ErrorJSON(w, http.StatusBadRequest, "invalid provider_id", nil)
 		return
 	}
 	serviceID, err := strconv.ParseInt(sidStr, 10, 64)
 	if err != nil || serviceID <= 0 {
-		http.Error(w, "service_id must be a positive integer", http.StatusBadRequest)
+		ErrorJSON(w, http.StatusBadRequest, "invalid service_id", nil)
 		return
 	}
 
 	// Load provider/service + inputs we need
 	svc, err := d.Q.GetService(ctx, serviceID)
 	if err != nil {
-		http.Error(w, "service not found", http.StatusNotFound)
+		ErrorJSON(w, http.StatusNotFound, "service not found", nil)
 		return
 	}
 	// ensure provider exists (and to keep the door open for clinic checks later)
 	if _, err := d.Q.GetProvider(ctx, providerID); err != nil {
-		http.Error(w, "provider not found", http.StatusNotFound)
+		ErrorJSON(w, http.StatusNotFound, "provider not found", nil)
 		return
 	}
 
@@ -58,7 +57,7 @@ func (d SlotDeps) ListSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse date in that location
 	date, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 	if err != nil {
-		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
+		ErrorJSON(w, http.StatusBadRequest, "date must be YYYY-MM-DD", nil)
 		return
 	}
 
@@ -73,7 +72,7 @@ func (d SlotDeps) ListSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	avRows, err := d.Q.GetProviderWeekdayAvailability(ctx, avParams)
 	if err != nil {
-		http.Error(w, "failed to load availability", http.StatusInternalServerError)
+		ErrorJSON(w, http.StatusInternalServerError, "failed to load availability", nil)
 		return
 	}
 
@@ -95,7 +94,7 @@ func (d SlotDeps) ListSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	appts, err := d.Q.ListProviderAppointmentsOnDate(ctx, apParams)
 	if err != nil {
-		http.Error(w, "failed to load appointments", http.StatusInternalServerError)
+		ErrorJSON(w, http.StatusInternalServerError, "failed to load appointments", nil)
 		return
 	}
 
@@ -111,7 +110,7 @@ func (d SlotDeps) ListSlotsHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now().In(loc)
 	slotTimes, err := slots.Generate(date, loc, int(svc.DurationMin), av, booked, now)
 	if err != nil {
-		http.Error(w, "failed to generate slots: "+err.Error(), http.StatusBadRequest)
+		ErrorJSON(w, http.StatusBadRequest, "failed to generate slots", err.Error())
 		return
 	}
 
@@ -133,6 +132,6 @@ func (d SlotDeps) ListSlotsHandler(w http.ResponseWriter, r *http.Request) {
 		resp.Slots = append(resp.Slots, t.Format(time.RFC3339))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	JSON(w, http.StatusOK, resp)
+
 }

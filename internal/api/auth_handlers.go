@@ -18,8 +18,9 @@ type AuthDeps struct {
 type registerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Role     string `json:"role"` // default patient
+	Role     string `json:"role"` // optional; defaults to "patient"
 }
+
 type tokenResponse struct {
 	Token string `json:"token"`
 }
@@ -27,12 +28,14 @@ type tokenResponse struct {
 func (d AuthDeps) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid json", 400)
+		ErrorJSON(w, http.StatusBadRequest, "invalid json", nil)
 		return
 	}
+
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
+	req.Role = strings.TrimSpace(strings.ToLower(req.Role))
 	if req.Email == "" || len(req.Password) < 8 {
-		http.Error(w, "email/password invalid", 400)
+		ErrorJSON(w, http.StatusBadRequest, "email/password invalid", "password must be at least 8 chars")
 		return
 	}
 	if req.Role == "" {
@@ -41,28 +44,29 @@ func (d AuthDeps) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		http.Error(w, "hash error", 500)
+		ErrorJSON(w, http.StatusInternalServerError, "hash error", nil)
 		return
 	}
 
 	u, err := d.Q.CreateUser(r.Context(), gen.CreateUserParams{
-		Email: req.Email, PasswordHash: hash, Role: req.Role,
+		Email:        req.Email,
+		PasswordHash: hash,
+		Role:         req.Role,
 	})
 	if err != nil {
-		// TEMPORARY DEBUG LOG — safe; shows constraint/extension errors
+		// TEMP DEBUG — surfaces constraint errors, etc.
 		println("CreateUser error:", err.Error())
-		http.Error(w, "create user failed", 400)
+		ErrorJSON(w, http.StatusBadRequest, "create user failed", err.Error())
 		return
 	}
 
 	tok, err := auth.SignJWT(d.Cfg.JWTSecret, d.Cfg.JWTIssuer, d.Cfg.JWTTTLMinutes, u.ID, u.Role)
 	if err != nil {
-		http.Error(w, "token error", 500)
+		ErrorJSON(w, http.StatusInternalServerError, "token error", nil)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(tokenResponse{Token: tok})
+	JSON(w, http.StatusCreated, tokenResponse{Token: tok})
 }
 
 type loginRequest struct {
@@ -73,31 +77,32 @@ type loginRequest struct {
 func (d AuthDeps) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid json", 400)
+		ErrorJSON(w, http.StatusBadRequest, "invalid json", nil)
 		return
 	}
+
 	req.Email = strings.TrimSpace(strings.ToLower(req.Email))
 	if req.Email == "" || req.Password == "" {
-		http.Error(w, "email/password required", 400)
+		ErrorJSON(w, http.StatusBadRequest, "email/password required", nil)
 		return
 	}
 
 	u, err := d.Q.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
-		http.Error(w, "invalid credentials", 401)
+		// Don’t leak whether the email exists
+		ErrorJSON(w, http.StatusUnauthorized, "invalid credentials", nil)
 		return
 	}
 	if err := auth.CheckPassword(u.PasswordHash, req.Password); err != nil {
-		http.Error(w, "invalid credentials", 401)
+		ErrorJSON(w, http.StatusUnauthorized, "invalid credentials", nil)
 		return
 	}
 
 	tok, err := auth.SignJWT(d.Cfg.JWTSecret, d.Cfg.JWTIssuer, d.Cfg.JWTTTLMinutes, u.ID, u.Role)
 	if err != nil {
-		http.Error(w, "token error", 500)
+		ErrorJSON(w, http.StatusInternalServerError, "token error", nil)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(tokenResponse{Token: tok})
+	JSON(w, http.StatusOK, tokenResponse{Token: tok})
 }
